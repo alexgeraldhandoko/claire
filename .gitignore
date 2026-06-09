@@ -1,2 +1,5 @@
 # Model data
 data/
+
+# Dependencies
+.venv
