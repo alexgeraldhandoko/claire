@@ -16,12 +16,15 @@ import json
 # ------------------------------------------
 # Constants
 # ------------------------------------------
+print("Initialising constants")
 # Prepare the PyTorch tensor to record all the order books 
 # for every 0.1s for the top 10 levels of bid and ask
 # Shape: [860000, 41]
 # 860,000 rows of [bid_price_1, bid_size_1, bid_price_2, bid_size_2, ...]
+X_matrix = []
 X_df = pd.DataFrame(columns=range(41))
 mid_price_df = pd.Series(dtype="float64")
+mid_price_vector = []
 classification_df = pd.Series(dtype="int64")
 
 # Prepare the TreeMap of the whole order book
@@ -47,8 +50,10 @@ RANDOM_DATASET_SPLIT_SEED = 42
 # 2. Construct it into an order book
 # 3. Push the order book as a new row in the PyTorch tensor
 with RAW_DATA_PATH.open("r") as file:
+    print("Starting main execution...")
     previous_row = None
     for line_number, line in enumerate(file):
+        print(f"Processling line: {line_number + 1}")
         # Prepare the list that represents the new row to be
         # added to the PyTorch tensor
         new_row = []
@@ -122,14 +127,21 @@ with RAW_DATA_PATH.open("r") as file:
         # classification for it (we don't know the next time step's
         # label classification after the last time step)
         if previous_row is not None:
-            X_df.loc[len(X_df)] = previous_row
-        mid_price_df.loc[len(mid_price_df)] = mid_price
+            X_matrix.append(previous_row)
+        mid_price_vector.append(mid_price)
 
-        # To keep track of whether we are in the first 
+        # To keep track of whether we are in the first row or not
         previous_row = new_row
+
+# Convert matrices into Pandas dataframes - faster to do all in one
+# shot
+print("Converting matrices into Pandas dataframes")
+X_df = pd.DataFrame(X_matrix)
+mid_price_df = pd.Series(mid_price_vector)
 
 # Create the ground truth classification levels from the 
 # mid price movement from one time step to the next time step
+print("Creating ground truth labels...")
 for i in range(len(mid_price_df) - 1):
     curr_mid_price = mid_price_df[i]
     next_mid_price = mid_price_df[i + 1]
@@ -142,6 +154,7 @@ for i in range(len(mid_price_df) - 1):
         classification_df[i] = 0
 
 # Split the data into training, validation, and test sets
+print("Splitting data into train, val, and test sets...")
 X_train_df, X_temp_df, y_train_df, y_temp_df = train_test_split(
     X_df,
     classification_df,
@@ -160,6 +173,7 @@ X_val_df, X_test_df, y_val_df, y_test_df = train_test_split(
 )
 
 # Convert the dataframes into PyTorch tensors
+print("Converting data into PyTorch tensors...")
 X_train_tensor = torch.tensor(X_train_df.to_numpy(), dtype=torch.float32)
 y_train_tensor = torch.tensor(y_train_df.to_numpy(), dtype=torch.long)
 X_val_tensor = torch.tensor(X_val_df.to_numpy(), dtype=torch.float32)
@@ -169,6 +183,7 @@ y_test_tensor = torch.tensor(y_test_df.to_numpy(), dtype=torch.long)
 
 # Save the resulting PyTorch tensor that represents the order books
 # for one day
+print("Saving PyTorch tensors...")
 torch.save(
     {
         "X_train": X_train_tensor,
@@ -190,3 +205,4 @@ torch.save(
     },
     SAVE_FILE_DIR / "test.pt"
 )
+print("Preprocessing complete.")
