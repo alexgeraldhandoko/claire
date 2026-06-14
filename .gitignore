@@ -9,3 +9,7 @@ data/
 
 # VSCode settings
 .vscode/
+
+# Cache
+__pycache__/
+*.pyc
