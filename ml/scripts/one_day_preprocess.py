@@ -158,8 +158,6 @@ print("Splitting data into train, val, and test sets...")
 X_train_df, X_temp_df, y_train_df, y_temp_df = train_test_split(
     X_df,
     classification_df,
-    shuffle=True,
-    stratify=classification_df,
     random_state=RANDOM_DATASET_SPLIT_SEED,
     train_size=0.7
 )
@@ -168,8 +166,6 @@ X_val_df, X_test_df, y_val_df, y_test_df = train_test_split(
     y_temp_df,
     random_state=RANDOM_DATASET_SPLIT_SEED,
     train_size=0.5,
-    shuffle=True,
-    stratify=y_temp_df
 )
 
 # Convert the dataframes into PyTorch tensors

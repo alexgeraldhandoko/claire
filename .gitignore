@@ -1,6 +1,9 @@
 # Model data
 data/
 
+# Any zip files
+.zip
+
 # Dependencies
 .venv/
 
