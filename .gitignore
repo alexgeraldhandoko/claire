@@ -2,7 +2,7 @@
 data/
 
 # Any zip files
-.zip
+*.zip
 
 # Dependencies
 .venv/
