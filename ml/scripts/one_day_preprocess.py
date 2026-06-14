@@ -35,6 +35,7 @@ bid_order_book_as_map = SortedDict()
 ask_order_book_as_map = SortedDict()
 
 # Load the one day file
+print("Loading files from memory...")
 RAW_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "raw" / "onedaybtc.data"
 SAVE_FILE_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 SAVE_FILE_DIR.mkdir(parents=True, exist_ok=True)
@@ -52,8 +53,10 @@ RANDOM_DATASET_SPLIT_SEED = 42
 with RAW_DATA_PATH.open("r") as file:
     print("Starting main execution...")
     previous_row = None
+    best_bid_list = []
+    best_ask_list = []
     for line_number, line in enumerate(file):
-        print(f"Processling line: {line_number + 1}")
+        print(f"Processing line: {line_number + 1}")
         # Prepare the list that represents the new row to be
         # added to the PyTorch tensor
         new_row = []
@@ -118,7 +121,9 @@ with RAW_DATA_PATH.open("r") as file:
 
         # Calculate the mid price
         best_bid = next(reversed(bid_order_book_as_map))
+        best_bid_list.append(best_bid)
         best_ask = next(iter(ask_order_book_as_map))
+        best_ask_list.append(best_ask)
         mid_price = (best_bid + best_ask) / 2
         new_row.append(mid_price)
 
@@ -138,28 +143,31 @@ with RAW_DATA_PATH.open("r") as file:
 print("Converting matrices into Pandas dataframes")
 X_df = pd.DataFrame(X_matrix)
 mid_price_df = pd.Series(mid_price_vector)
+best_ask_series = pd.Series(best_ask_list)
+best_bid_series = pd.Series(best_bid_list)
 
 # Create the ground truth classification levels from the 
 # mid price movement from one time step to the next time step
 print("Creating ground truth labels...")
+spread_pct = (
+    (best_ask_series - best_bid_series) / mid_price_df).median()
 for i in range(len(mid_price_df) - 1):
     curr_mid_price = mid_price_df[i]
     next_mid_price = mid_price_df[i + 1]
-    mid_price_change = next_mid_price - curr_mid_price
-    if abs(mid_price_change) < 0.001:
-        classification_df[i] = 1
-    elif mid_price_change > 0.001:
+    mid_price_change = ((next_mid_price - curr_mid_price) / 
+        curr_mid_price)
+    if mid_price_change > spread_pct:
         classification_df[i] = 2
-    else:
+    elif mid_price_change < -spread_pct:
         classification_df[i] = 0
+    else:
+        classification_df[i] = 1
 
 # Split the data into training, validation, and test sets
 print("Splitting data into train, val, and test sets...")
 X_train_df, X_temp_df, y_train_df, y_temp_df = train_test_split(
     X_df,
     classification_df,
-    shuffle=True,
-    stratify=classification_df,
     random_state=RANDOM_DATASET_SPLIT_SEED,
     train_size=0.7
 )
@@ -168,8 +176,6 @@ X_val_df, X_test_df, y_val_df, y_test_df = train_test_split(
     y_temp_df,
     random_state=RANDOM_DATASET_SPLIT_SEED,
     train_size=0.5,
-    shuffle=True,
-    stratify=y_temp_df
 )
 
 # Convert the dataframes into PyTorch tensors

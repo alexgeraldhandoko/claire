@@ -1,8 +1,15 @@
 # Model data
 data/
 
+# Any zip files
+*.zip
+
 # Dependencies
 .venv/
 
 # VSCode settings
 .vscode/
+
+# Cache
+__pycache__/
+*.pyc
