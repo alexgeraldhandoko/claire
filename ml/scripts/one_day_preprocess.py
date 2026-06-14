@@ -3,7 +3,7 @@
 # ------------------------------------------
 # ML libraries imports
 import torch
-import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 
 # Import Python algorithm/data structures helper libraries
@@ -11,22 +11,12 @@ from sortedcontainers import SortedDict
 
 # File-handling imports
 from pathlib import Path
-import json
+import orjson
 
 # ------------------------------------------
 # Constants
 # ------------------------------------------
 print("Initialising constants")
-# Prepare the PyTorch tensor to record all the order books 
-# for every 0.1s for the top 10 levels of bid and ask
-# Shape: [860000, 41]
-# 860,000 rows of [bid_price_1, bid_size_1, bid_price_2, bid_size_2, ...]
-X_matrix = []
-X_df = pd.DataFrame(columns=range(41))
-mid_price_df = pd.Series(dtype="float64")
-mid_price_vector = []
-classification_df = pd.Series(dtype="int64")
-
 # Prepare the TreeMap of the whole order book
 # This keeps track of the ordering and size of the bids and asks
 # The key will be the order amount - this is used to query the top 10
@@ -42,6 +32,15 @@ SAVE_FILE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Other constants
 RANDOM_DATASET_SPLIT_SEED = 42
+ORDER_BOOK_LEVELS = 10
+NUMBER_OF_LINES_PER_DAY = 10 * 60 * 60 * 24
+FEATURES_PER_ROW = ORDER_BOOK_LEVELS * 2 * 2 + 1
+
+# Prepare the np arrays to record all the order books 
+# for every 0.1s for the top 10 levels of bid and ask
+# Shape: [860000, 41]
+# 860,000 rows of [ask_price_1, ask_size_1, ask_price_2, ask_size_2, ...]
+X_np = np.empty((NUMBER_OF_LINES_PER_DAY, FEATURES_PER_ROW), dtype=np.float32)
 
 # ------------------------------------------
 # Main preprocessing
@@ -50,20 +49,15 @@ RANDOM_DATASET_SPLIT_SEED = 42
 # 1. Process it to change the TreeMap
 # 2. Construct it into an order book
 # 3. Push the order book as a new row in the PyTorch tensor
-with RAW_DATA_PATH.open("r") as file:
+with RAW_DATA_PATH.open("rb") as file:
     print("Starting main execution...")
-    previous_row = None
-    best_bid_list = []
-    best_ask_list = []
+    curr_valid_row = 0
     for line_number, line in enumerate(file):
-        print(f"Processing line: {line_number + 1}")
-        # Prepare the list that represents the new row to be
-        # added to the PyTorch tensor
-        new_row = []
+        if (line_number % 10000 == 0):
+            print(f"Processed {line_number + 1} lines")
 
         # Parse the line JSON into an object
-        stripped_line = line.strip()
-        json_line = json.loads(stripped_line)
+        json_line = orjson.loads(line)
 
         bids = json_line["data"]["b"]
         asks = json_line["data"]["a"]
@@ -99,93 +93,76 @@ with RAW_DATA_PATH.open("r") as file:
                     ask_order_book_as_map[ask_amount] = ask_share_size
 
         # Search for the top 10 bids and top 10 asks
-        for count, price in enumerate(reversed(bid_order_book_as_map)):
-            shares = bid_order_book_as_map[price]
-            new_row.append(price)
-            new_row.append(shares)
-            if count == 9:
-                break
-
-        for count, price in enumerate(ask_order_book_as_map):
-            shares = ask_order_book_as_map[price]
-            new_row.append(price)
-            new_row.append(shares)
-            if count == 9:
-                break
-        
-        # The new row needs at least 10 top bid and ask levels
-        # respectively, and if the current order book doesn't 
-        # have that many, then skip the current order book
-        if len(new_row) != 40:
+        if (
+            len(ask_order_book_as_map) < 10 or
+            len(bid_order_book_as_map) < 10
+        ):
             continue
 
-        # Calculate the mid price
-        best_bid = next(reversed(bid_order_book_as_map))
-        best_bid_list.append(best_bid)
-        best_ask = next(iter(ask_order_book_as_map))
-        best_ask_list.append(best_ask)
-        mid_price = (best_bid + best_ask) / 2
-        new_row.append(mid_price)
+        col_index = 0
+        for i in range(ORDER_BOOK_LEVELS):
+            ask_price, ask_shares = ask_order_book_as_map.peekitem(i)
+            X_np[curr_valid_row, col_index] = ask_price
+            X_np[curr_valid_row, col_index + 1] = ask_shares
+            col_index += 2
+        for i in range(ORDER_BOOK_LEVELS):
+            bid_price, bid_shares = bid_order_book_as_map.peekitem(-(i + 1))
+            X_np[curr_valid_row, col_index] = bid_price
+            X_np[curr_valid_row, col_index + 1] = bid_shares
+            col_index += 2
+        mid_price = (ask_order_book_as_map.peekitem(0)[0]
+            + bid_order_book_as_map.peekitem(-1)[0]) / 2
+        X_np[curr_valid_row, col_index] = mid_price
+        curr_valid_row += 1
 
-        # Put the new row list as a new row in the X and y dataframes
-        # Exclude the very last line because we don't have a label
-        # classification for it (we don't know the next time step's
-        # label classification after the last time step)
-        if previous_row is not None:
-            X_matrix.append(previous_row)
-        mid_price_vector.append(mid_price)
-
-        # To keep track of whether we are in the first row or not
-        previous_row = new_row
-
-# Convert matrices into Pandas dataframes - faster to do all in one
-# shot
-print("Converting matrices into Pandas dataframes")
-X_df = pd.DataFrame(X_matrix)
-mid_price_df = pd.Series(mid_price_vector)
-best_ask_series = pd.Series(best_ask_list)
-best_bid_series = pd.Series(best_bid_list)
+# Remove any skipped lines above
+X_np = X_np[:curr_valid_row]
 
 # Create the ground truth classification levels from the 
 # mid price movement from one time step to the next time step
 print("Creating ground truth labels...")
-spread_pct = (
-    (best_ask_series - best_bid_series) / mid_price_df).median()
-for i in range(len(mid_price_df) - 1):
-    curr_mid_price = mid_price_df[i]
-    next_mid_price = mid_price_df[i + 1]
-    mid_price_change = ((next_mid_price - curr_mid_price) / 
-        curr_mid_price)
-    if mid_price_change > spread_pct:
-        classification_df[i] = 2
-    elif mid_price_change < -spread_pct:
-        classification_df[i] = 0
-    else:
-        classification_df[i] = 1
+
+best_ask_col_idx = 0
+best_bid_col_idx = ORDER_BOOK_LEVELS * 2
+best_ask_np = X_np[:, best_ask_col_idx]
+best_bid_np = X_np[:, best_bid_col_idx]
+mid_price_np = (best_ask_np + best_bid_np) / 2
+mid_price_change_np = (
+    (mid_price_np[1:] - mid_price_np[:-1]) / mid_price_np[:-1]
+)
+spread_pct = np.median(
+    (best_ask_np[:-1] - best_bid_np[:-1]) / mid_price_np[:-1]
+)
+
+classification_np = np.ones(len(mid_price_change_np), dtype=np.int64)
+classification_np[mid_price_change_np > spread_pct] = 2
+classification_np[mid_price_change_np < -spread_pct] = 0
+
+X_np = X_np[:-1]
 
 # Split the data into training, validation, and test sets
 print("Splitting data into train, val, and test sets...")
-X_train_df, X_temp_df, y_train_df, y_temp_df = train_test_split(
-    X_df,
-    classification_df,
+X_train_np, X_temp_np, y_train_np, y_temp_np = train_test_split(
+    X_np,
+    classification_np,
     random_state=RANDOM_DATASET_SPLIT_SEED,
     train_size=0.7
 )
-X_val_df, X_test_df, y_val_df, y_test_df = train_test_split(
-    X_temp_df,
-    y_temp_df,
+X_val_np, X_test_np, y_val_np, y_test_np = train_test_split(
+    X_temp_np,
+    y_temp_np,
     random_state=RANDOM_DATASET_SPLIT_SEED,
     train_size=0.5,
 )
 
 # Convert the dataframes into PyTorch tensors
 print("Converting data into PyTorch tensors...")
-X_train_tensor = torch.tensor(X_train_df.to_numpy(), dtype=torch.float32)
-y_train_tensor = torch.tensor(y_train_df.to_numpy(), dtype=torch.long)
-X_val_tensor = torch.tensor(X_val_df.to_numpy(), dtype=torch.float32)
-y_val_tensor = torch.tensor(y_val_df.to_numpy(), dtype=torch.long)
-X_test_tensor = torch.tensor(X_test_df.to_numpy(), dtype=torch.float32)
-y_test_tensor = torch.tensor(y_test_df.to_numpy(), dtype=torch.long)
+X_train_tensor = torch.from_numpy(X_train_np)
+y_train_tensor = torch.from_numpy(y_train_np)
+X_val_tensor = torch.from_numpy(X_val_np)
+y_val_tensor = torch.from_numpy(y_val_np)
+X_test_tensor = torch.from_numpy(X_test_np)
+y_test_tensor = torch.from_numpy(y_test_np)
 
 # Save the resulting PyTorch tensor that represents the order books
 # for one day
