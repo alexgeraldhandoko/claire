@@ -5,13 +5,25 @@
 import torch
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.impute import SimpleImputer
 
 # Import Python algorithm/data structures helper libraries
 from sortedcontainers import SortedDict
 
 # File-handling imports
-from pathlib import Path
 import orjson
+from pathlib import Path
+import sys
+ML_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ML_DIR))
+from scripts.helper.constants import (RAW_DATA_PATH, SAVE_FILE_DIR, RANDOM_DATASET_SPLIT_SEED,
+    ORDER_BOOK_LEVELS, NUMBER_OF_LINES_PER_DAY, RAW_FEATURES_PER_ROW)
+
+from scripts.helper.helper_functions import scale_dataset, preprocess
+
+from scripts.helper.helper_classes import NumpyDataset, NumpyDatasetSplit
 
 # ------------------------------------------
 # Constants
@@ -24,23 +36,11 @@ print("Initialising constants")
 bid_order_book_as_map = SortedDict()
 ask_order_book_as_map = SortedDict()
 
-# Load the one day file
-print("Loading files from memory...")
-RAW_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "raw" / "onedaybtc.data"
-SAVE_FILE_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
-SAVE_FILE_DIR.mkdir(parents=True, exist_ok=True)
-
-# Other constants
-RANDOM_DATASET_SPLIT_SEED = 42
-ORDER_BOOK_LEVELS = 10
-NUMBER_OF_LINES_PER_DAY = 10 * 60 * 60 * 24
-FEATURES_PER_ROW = ORDER_BOOK_LEVELS * 2 * 2 + 1
-
 # Prepare the np arrays to record all the order books 
 # for every 0.1s for the top 10 levels of bid and ask
 # Shape: [860000, 41]
 # 860,000 rows of [ask_price_1, ask_size_1, ask_price_2, ask_size_2, ...]
-X_np = np.empty((NUMBER_OF_LINES_PER_DAY, FEATURES_PER_ROW), dtype=np.float32)
+X_np = np.empty((NUMBER_OF_LINES_PER_DAY, RAW_FEATURES_PER_ROW), dtype=np.float32)
 
 # ------------------------------------------
 # Main preprocessing
@@ -155,6 +155,36 @@ X_val_np, X_test_np, y_val_np, y_test_np = train_test_split(
     train_size=0.5,
 )
 
+# Perform scaling and feature transformation on the dataset splits
+X_train_split = NumpyDatasetSplit(
+    X=X_train_np,
+    y=y_train_np
+)
+X_val_split = NumpyDatasetSplit(
+    X=X_val_np,
+    y=y_val_np
+)
+X_test_split = NumpyDatasetSplit(
+    X=X_test_np,
+    y=y_test_np
+)
+
+X_dataset = NumpyDataset(
+    train_np_split=X_train_split,
+    val_np_split=X_val_split,
+    test_np_split=X_test_split
+)
+
+preprocessed_dataset = preprocess(X_dataset)
+preprocessed_dataset = scale_dataset(preprocessed_dataset)
+
+X_train_np = preprocessed_dataset.train_np_split.X
+y_train_np = preprocessed_dataset.train_np_split.y
+X_val_np = preprocessed_dataset.val_np_split.X
+y_val_np = preprocessed_dataset.val_np_split.y
+X_test_np = preprocessed_dataset.test_np_split.X
+y_test_np = preprocessed_dataset.test_np_split.y
+
 # Convert the dataframes into PyTorch tensors
 print("Converting data into PyTorch tensors...")
 X_train_tensor = torch.from_numpy(X_train_np)
@@ -169,22 +199,22 @@ y_test_tensor = torch.from_numpy(y_test_np)
 print("Saving PyTorch tensors...")
 torch.save(
     {
-        "X_train": X_train_tensor,
-        "y_train": y_train_tensor
+        "X": X_train_tensor,
+        "y": y_train_tensor
     },
     SAVE_FILE_DIR / "train.pt"
 )
 torch.save(
     {
-        "X_val": X_val_tensor,
-        "y_val": y_val_tensor
+        "X": X_val_tensor,
+        "y": y_val_tensor
     },
     SAVE_FILE_DIR / "val.pt"
 )
 torch.save(
     {
-        "X_test": X_test_tensor,
-        "y_test": y_test_tensor
+        "X": X_test_tensor,
+        "y": y_test_tensor
     },
     SAVE_FILE_DIR / "test.pt"
 )
