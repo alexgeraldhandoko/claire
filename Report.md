@@ -75,12 +75,40 @@ it can be used as a factor in making profitable trading decisions.
 
 There were several methods available to label the classification ground truth 
 for the input data:
-1. Absolute threshold
+1. Absolute change compared to next timestep's mid price
+e.g. Mid price change of > 0.001 as up, < -0.001 as down, and stationary
+otherwise.
+This may work poorly for different datasets. For instance, 0.001 is a very small
+change for assets with high prices like bitcoin
+2. Percentage change compared to next timestep's mid price
+e.g. Mid price change of > 0.2% as up, < -0.2% as down, and stationary
+otherwise.
+This may result in noisy labelling. Financial data is highly stochastic, and 
+random price fluctuations can happen from one timestep to the next. Thus,
+a +0.2% change could be caused by noise instead of real market factors.
+3. Percentage change compared to the smoothed average mid price
+e.g. Compare the current mid price with the average price of the next 50 
+timesteps. If the percentage change is > 0.2%, then label as up. If the 
+percentage change is < -0.2%, label as down. Otherwise, label as stationary.
+This labelling method could be fine for academic research. But there has been
+criticisms regarding this method when used to build models for the profitable 
+trading. One of them is that this method ignores transaction costs. For
+instance, if the spread relative to mid price is 0.5%, then the costs could
+outweigh the earnings from a 0.2% movement in mid price.
+4. Percentage threshold representing the average spread relative to mid price
+over the dataset
+e.g. Average spread as percentage of mid price is calculated to be 0.5% 
+for the entire dataset. If the mid price percentage change from one timestep to the
+next timestep is > 0.5%, label as up. If < -0.5%, label as down. Otherwise,
+label as stationary.
+This takes into account possible transaction costs of the trade.
+
+The 4th option will be used for this project.
 
 **Feature Scaling**
 Feature scaling remains important although many of the features are price levels 
 hovering around the same magnitude. This is because the features contain a mix
-of both prices and also share amounts.
+of both prices and also share amounts that can differ in magnitudes.
 
 Feature Transformation
 
