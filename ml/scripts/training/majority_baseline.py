@@ -1,11 +1,10 @@
 import torch
 from pathlib import Path
 
-from helper_classes import Label, ConfusionMatrix, ClassificationEvaluationData
-from helper_functions import get_data_from_confusion_matrices
+from ml.scripts.helper.helper_classes import Label, ConfusionMatrix, ClassificationEvaluationData
+from ml.scripts.helper.helper_functions import get_data_from_confusion_matrices
 
-PROCESSED_DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
-TRAINING_DATA_PATH = PROCESSED_DATA_DIR / "train.pt"
+from ml.scripts.helper.constants import TRAINING_DATA_PATH
 
 # Load the PyTorch training tensor
 print("Loading training data...")

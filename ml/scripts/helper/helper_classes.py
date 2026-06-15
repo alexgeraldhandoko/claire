@@ -1,7 +1,11 @@
 from enum import IntEnum
 from dataclasses import dataclass
 
-from math_utils import divide_or_zero
+from scripts.helper.math_utils import divide_or_zero
+
+import torch
+
+import numpy as np
 
 class Label(IntEnum):
     DOWN = 0
@@ -106,3 +110,25 @@ class ConfusionMatrix:
 
         return divide_or_zero(2 * precision * recall,
             precision + recall)
+    
+@dataclass
+class NumpyDatasetSplit:
+    X: np.array
+    y: np.array
+
+@dataclass
+class NumpyDataset:
+    train_np_split: NumpyDatasetSplit
+    val_np_split: NumpyDatasetSplit
+    test_np_split: NumpyDatasetSplit
+
+@dataclass
+class TensorDatasetSplit:
+    X: torch.Tensor
+    y: torch.Tensor
+
+@dataclass
+class LoadedTensors:
+    train_tensors: TensorDatasetSplit
+    val_tensors: TensorDatasetSplit
+    test_tensors: TensorDatasetSplit
