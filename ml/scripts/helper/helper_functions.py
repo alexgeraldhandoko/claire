@@ -22,7 +22,8 @@ from scripts.helper.constants import (
     VAL_TENSOR_PATH,
     TEST_TENSOR_PATH,
     BEST_ANN_MODEL_PATH,
-    ANN_MODEL_CHECKPOINT_PATH
+    ANN_MODEL_CHECKPOINT_PATH,
+    device
 )
 
 from sklearn.pipeline import Pipeline
@@ -33,6 +34,7 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
 def get_data_from_confusion_matrices(matrices: list[ConfusionMatrix]) -> PerformanceMetrics:
     accuracy_sum = 0
@@ -230,7 +232,13 @@ def build_ann_model():
         nn.Linear(8, 3)
     )
 
+def build_rnn_model():
+
+    return
+
 def evaluate_model(model: nn.Module, eval_split: TensorDatasetSplit):
+    # Print device type
+    print(f"Validation is using device: {device}")
     # Extract the validation input and labels
     X_val = eval_split.X
     y_val = eval_split.y
@@ -238,27 +246,52 @@ def evaluate_model(model: nn.Module, eval_split: TensorDatasetSplit):
     # Set the model to evaluation mode
     model.eval()
 
-    # Compute the model output logits
+    # Batch the validation input before moving to device to reduce
+    # chance of device out of memory error
+    dataset = TensorDataset(X_val, y_val)
+    val_loader = DataLoader(
+        dataset,
+        batch_size=64
+    )
+
+    predictions = []
+    actual_labels = [Label(value) for value in y_val.tolist()]
+
+    # Compute the model output logitsevalu
     with torch.no_grad():
-        logits = model(X_val)   
-    predictions = torch.argmax(logits, dim=1)
-    predictions = [Label(value) for value in predictions.tolist()]
-    y_val = [Label(value) for value in y_val.tolist()]
+        for X, _ in val_loader:
+            # Move X to the device
+            X = X.to(device)
+
+            # Forward pass
+            logits = model(X)  
+
+            # Convert logits into class predictions
+            predictions_batch = torch.argmax(logits, dim=1)
+
+            # Turn the batch's predictions into a list of Labels
+            predictions_batch = [
+                Label(value) for value in predictions_batch.tolist()
+            ]
+
+            # Append the batch's list of Labels into the overall list
+            # of Labels
+            predictions.extend(predictions_batch)
 
     # Compute the model confusion matrix for all three positive classes
     up_eval_data = ClassificationEvaluationData(
         predictions=predictions,
-        actual_labels=y_val,
+        actual_labels=actual_labels,
         positive_class=Label.UP
     )
     stationary_eval_data = ClassificationEvaluationData(
         predictions=predictions,
-        actual_labels=y_val,
+        actual_labels=actual_labels,
         positive_class=Label.STATIONARY
     )
     down_eval_data = ClassificationEvaluationData(
         predictions=predictions,
-        actual_labels=y_val,
+        actual_labels=actual_labels,
         positive_class=Label.DOWN
     )
 
