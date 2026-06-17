@@ -35,6 +35,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
+from torch.optim import Adam
 
 def get_data_from_confusion_matrices(matrices: list[ConfusionMatrix]) -> PerformanceMetrics:
     accuracy_sum = 0
@@ -218,6 +219,17 @@ def load_tensors() -> LoadedTensors:
         )
     )
 
+def load_ann_model(resume: bool):
+    model = build_ann_model()
+    if (resume):
+        model_checkpoint_dict = torch.load(
+            ANN_MODEL_CHECKPOINT_PATH,
+            map_location=device
+        )
+        model_state_dict = model_checkpoint_dict["model_state_dict"]
+        model.load_state_dict(model_state_dict)
+    return model
+
 def build_ann_model():
     return nn.Sequential(
         nn.Linear(ENGINEERED_FEATURES_PER_ROW, 32),
@@ -233,12 +245,11 @@ def build_ann_model():
     )
 
 def build_rnn_model():
-
     return
 
 def evaluate_model(model: nn.Module, eval_split: TensorDatasetSplit):
     # Print device type
-    print(f"Validation is using device: {device}")
+    print(f"Evaluation is using device: {device}")
     # Extract the validation input and labels
     X_val = eval_split.X
     y_val = eval_split.y
@@ -271,7 +282,7 @@ def evaluate_model(model: nn.Module, eval_split: TensorDatasetSplit):
 
             # Turn the batch's predictions into a list of Labels
             predictions_batch = [
-                Label(value) for value in predictions_batch.tolist()
+                Label(value) for value in predictions_batch.cpu().tolist()
             ]
 
             # Append the batch's list of Labels into the overall list
@@ -313,20 +324,38 @@ def evaluate_model(model: nn.Module, eval_split: TensorDatasetSplit):
 
     return macro_f1
 
-def update_checkpoint_model(model: nn.Module, macro_f1: int) -> None:
+def update_checkpoint_model(
+    model: nn.Module, 
+    optimizer: Adam,
+    epoch: int,
+    macro_f1: float,
+    best_macro_f1: float
+) -> None:
     torch.save(
         {
-            "model_state": model.state_dict(),
-            "macro_f1": macro_f1
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "macro_f1": macro_f1,
+            "best_macro_f1": best_macro_f1
         },
         ANN_MODEL_CHECKPOINT_PATH
     )
 
-def update_best_model(model: nn.Module, macro_f1: int) -> None:
+def update_best_model(
+        model: nn.Module, 
+        optimizer: Adam,
+        epoch: int,
+        macro_f1: float,
+        best_macro_f1: float
+) -> None:
     torch.save(
         {
-            "model_state": model.state_dict(),
-            "macro_f1": macro_f1
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "macro_f1": macro_f1,
+            "best_macro_f1": best_macro_f1
         },
         BEST_ANN_MODEL_PATH
     )

@@ -5,16 +5,17 @@ ML_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ML_DIR))
 
 from scripts.helper.constants import (
-    TRAINING_EPOCHS, 
-    device
+    ANN_MODEL_CHECKPOINT_PATH,
+    device,
+    train_parser
 )
 from scripts.helper.helper_classes import TensorDatasetSplit, LoadedTensors
 from scripts.helper.helper_functions import (
     load_tensors, 
-    build_ann_model, 
     evaluate_model,
     update_best_model,
     update_checkpoint_model,
+    load_ann_model
 )
 
 import torch
@@ -24,7 +25,10 @@ from torch.optim import Adam
 
 def main():
     # Print device type
-    print(f"Training is using device: {device}")
+    print(f"The following device is available: {device}")
+
+    # Load the command-line arguments
+    args = train_parser.parse_args()
 
     # Load the training, val, and test tensors
     print("Loading the tensor data")
@@ -47,18 +51,39 @@ def main():
         shuffle=True
     )
 
-    # Build the model
-    print("Building the model...")
-    model = build_ann_model().to(device=device)
+    # Load the model
+    model = load_ann_model(resume=args.resume)
+    model = model.to(device)
 
-    # Initialise the loss function and adaptive optimizer
+    # Initialise the loss function, adaptive optimizer, and epochs,
+    # and macro F1
     loss_fn = nn.CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=0.001)
+    epochs = args.epochs
+    if (args.resume):
+        checkpoint_model_dict = torch.load(
+            ANN_MODEL_CHECKPOINT_PATH,
+            map_location=device
+        )
+        start_epoch = checkpoint_model_dict["epoch"] + 1
+        end_epoch = start_epoch + epochs
+        macro_f1 = checkpoint_model_dict["macro_f1"]
+        best_macro_f1 = checkpoint_model_dict["best_macro_f1"]
+        optimizer.load_state_dict(
+            checkpoint_model_dict["optimizer_state_dict"]
+        )
+    else:
+        start_epoch = 0
+        end_epoch = epochs
+        macro_f1 = 0
+        best_macro_f1 = 0
 
     # Train the model
-    print("Starting training")
-    best_macro_f1 = 0
-    for epoch in range(TRAINING_EPOCHS):
+    print(
+        f"Starting training with the model at device: "
+        f"{next(model.parameters()).device}"
+    )
+    for epoch in range(start_epoch, end_epoch):
         print("-----------------------------------------")
         print(f"Training epoch: {epoch + 1}")
         # Set the model to training mode
@@ -94,10 +119,22 @@ def main():
         if macro_f1 > best_macro_f1:
             print(f"***New best model found with macro F1: {macro_f1}***")
             best_macro_f1 = macro_f1
-            update_best_model(model, best_macro_f1)
+            update_best_model(
+                model=model,
+                epoch=epoch,
+                macro_f1=macro_f1,
+                best_macro_f1=best_macro_f1,
+                optimizer=optimizer
+            )
 
         # Update the checkpoint model
-        update_checkpoint_model(model, macro_f1)
+        update_checkpoint_model(
+            model=model,
+            epoch=epoch,
+            macro_f1=macro_f1,
+            best_macro_f1=best_macro_f1,
+            optimizer=optimizer
+        )
         print("-----------------------------------------")
 
     # Test the model
