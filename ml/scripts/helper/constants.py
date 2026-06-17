@@ -1,5 +1,6 @@
 from pathlib import Path
 import torch
+import argparse
 
 # File paths
 PROCESSED_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "processed"
@@ -41,4 +42,10 @@ IMBALANCE_1_COL = 42
 IMBALANCE_5_COL = 43
 IMBALANCE_10_COL = 44
 
+# Objects
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+train_parser = argparse.ArgumentParser(
+    description="Parser for training script command-line arguments"
+)
+train_parser.add_argument("--epochs", type=int, default=20)
+train_parser.add_argument("--resume", action="store_true")
