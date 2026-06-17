@@ -1,4 +1,5 @@
 from pathlib import Path
+import torch
 
 # File paths
 PROCESSED_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "processed"
@@ -39,3 +40,5 @@ SPREAD_PCT_COL = 41
 IMBALANCE_1_COL = 42
 IMBALANCE_5_COL = 43
 IMBALANCE_10_COL = 44
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
