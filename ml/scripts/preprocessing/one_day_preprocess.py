@@ -18,8 +18,14 @@ from pathlib import Path
 import sys
 ML_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ML_DIR))
-from scripts.helper.constants import (RAW_DATA_PATH, SAVE_FILE_DIR, RANDOM_DATASET_SPLIT_SEED,
-    ORDER_BOOK_LEVELS, NUMBER_OF_LINES_PER_DAY, RAW_FEATURES_PER_ROW)
+from scripts.helper.constants import (
+    RAW_DATA_PATH, 
+    SAVE_FILE_DIR, 
+    RANDOM_DATASET_SPLIT_SEED,
+    ORDER_BOOK_LEVELS, 
+    NUMBER_OF_LINES_PER_DAY, 
+    RAW_FEATURES_PER_ROW,
+    preprocessing_parser)
 
 from scripts.helper.helper_functions import scale_dataset, preprocess
 
@@ -35,6 +41,7 @@ print("Initialising constants")
 # The value will be the order size
 bid_order_book_as_map = SortedDict()
 ask_order_book_as_map = SortedDict()
+args = preprocessing_parser.parse_args()
 
 # Prepare the np arrays to record all the order books 
 # for every 0.1s for the top 10 levels of bid and ask
@@ -146,13 +153,15 @@ X_train_np, X_temp_np, y_train_np, y_temp_np = train_test_split(
     X_np,
     classification_np,
     random_state=RANDOM_DATASET_SPLIT_SEED,
-    train_size=0.7
+    train_size=0.7,
+    shuffle=args.shuffle
 )
 X_val_np, X_test_np, y_val_np, y_test_np = train_test_split(
     X_temp_np,
     y_temp_np,
     random_state=RANDOM_DATASET_SPLIT_SEED,
     train_size=0.5,
+    shuffle=args.shuffle
 )
 
 # Perform scaling and feature transformation on the dataset splits

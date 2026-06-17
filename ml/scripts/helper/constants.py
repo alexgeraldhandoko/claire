@@ -49,3 +49,7 @@ train_parser = argparse.ArgumentParser(
 )
 train_parser.add_argument("--epochs", type=int, default=20)
 train_parser.add_argument("--resume", action="store_true")
+preprocessing_parser = argparse.ArgumentParser(
+    description="Parser for preprocessing script command-line arguments"
+)
+preprocessing_parser.add_argument("--shuffle", action="store_true")
