@@ -72,7 +72,10 @@ def main():
             LSTM_MODEL_CHECKPOINT_PATH,
             map_location=device
         )
-        optimizer = model_checkpoint_dict["optimizer"]
+        optimizer_state_dict = model_checkpoint_dict[
+            "optimizer_state_dict"
+        ]
+        optimizer.load_state_dict(optimizer_state_dict)
         start_epoch = model_checkpoint_dict["epoch"] + 1
         end_epoch = start_epoch + epochs
         macro_f1 = model_checkpoint_dict["macro_f1"]
@@ -81,7 +84,7 @@ def main():
         start_epoch = 0
         end_epoch = epochs
         macro_f1 = 0
-        best_macro_f1 = 0
+        best_macro_f1 = float("-inf")
 
     # Execute training
     for epoch in range(start_epoch, end_epoch):
@@ -119,7 +122,7 @@ def main():
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
-                    "optimizer": optimizer,
+                    "optimizer_state_dict": optimizer.state_dict(),
                     "epoch": epoch,
                     "macro_f1": macro_f1,
                     "best_macro_f1": best_macro_f1
@@ -131,7 +134,7 @@ def main():
         torch.save(
             {
                 "model_state_dict": model.state_dict(),
-                "optimizer": optimizer,
+                "optimizer_state_dict": optimizer.state_dict(),
                 "epoch": epoch,
                 "macro_f1": macro_f1,
                 "best_macro_f1": best_macro_f1
@@ -141,8 +144,14 @@ def main():
 
     # Test the model
     print("Testing the model...")
-    best_model_dict = torch.load(BEST_LSTM_MODEL_PATH)
+    best_model_dict = torch.load(
+        BEST_LSTM_MODEL_PATH,
+        map_location=device
+    )
     model_state_dict = best_model_dict["model_state_dict"]
     model.load_state_dict(model_state_dict)
     test_macro_f1 = evaluate_lstm_model(model, test_split)
     print(f"Test Macro F1: {test_macro_f1}")
+
+if __name__ == "__main__":
+    main()

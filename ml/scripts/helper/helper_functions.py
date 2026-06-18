@@ -248,7 +248,7 @@ def load_lstm_model(should_resume: bool):
             LSTM_MODEL_CHECKPOINT_PATH,
             map_location=device
         )
-        model_state_dict = model_checkpoint_dict["model_state"]
+        model_state_dict = model_checkpoint_dict["model_state_dict"]
         model.load_state_dict(model_state_dict)
     return model
 
@@ -366,7 +366,7 @@ def evaluate_lstm_model(model: nn.Module, val_split: TensorDatasetSplit):
     # Forward pass
     model.eval()
     predictions = []
-    actual_labels = [Label(target) for target in y_val]
+    actual_labels = []
     for X, y in val_loader:
         X = X.to(device)
         y = y.to(device)
@@ -377,9 +377,13 @@ def evaluate_lstm_model(model: nn.Module, val_split: TensorDatasetSplit):
             # Compute predictions
             predictions_batch = torch.argmax(logits, dim=1)
             predictions_batch = [
-                Label(value) for value in predictions_batch
+                Label(value) for value in predictions_batch.tolist()
+            ]
+            actual_labels_batch = [
+                Label(target) for target in y.tolist()
             ]
             predictions.extend(predictions_batch)
+            actual_labels.extend(actual_labels_batch)
 
     # Convert results classification evaluation data
     up_eval_data = ClassificationEvaluationData(

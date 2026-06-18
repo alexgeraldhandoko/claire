@@ -150,7 +150,7 @@ class LSTMConfig:
 
 class OrderBookLSTM(nn.Module):
     def __init__(self, config: LSTMConfig):
-        super.__init__()
+        super().__init__()
 
         self.lstm = nn.LSTM(
             input_size=config.input_size,
@@ -184,7 +184,7 @@ class OrderBookWindowDataset(Dataset):
 
     def __getitem__(self, idx: int):
         start = min(idx, len(self.X) - 1)
-        end = min(idx + self.sequence_length, len(self.X) - 1)
+        end = min(start + self.sequence_length, len(self.X))
         X_window = self.X[start:end]
         y_target = self.y[max(end - 1, 0)]
         return X_window, y_target
