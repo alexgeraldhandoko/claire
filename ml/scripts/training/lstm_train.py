@@ -87,7 +87,11 @@ def main():
         best_macro_f1 = float("-inf")
 
     # Execute training
+    print("Starting main training loop")
+    print(f"Training is using device: {device}")
     for epoch in range(start_epoch, end_epoch):
+        print("------------------------------------")
+        print(f"Training epoch: {epoch}")
         model.train()
         # For every batch in the DataLoader
         for X_batch, y_batch in train_loader:
@@ -115,9 +119,11 @@ def main():
         
         # Validate the model
         macro_f1 = evaluate_lstm_model(model, val_split)
+        print(f"Validation Macro F1: {macro_f1}")
 
         # If the model performs better than the best, update the best
         if (macro_f1 > best_macro_f1):
+            print(f"***Found new best model with macro F1: {macro_f1}***")
             best_macro_f1 = macro_f1
             torch.save(
                 {
@@ -141,6 +147,7 @@ def main():
             },
             LSTM_MODEL_CHECKPOINT_PATH
         )
+        print("------------------------------------")
 
     # Test the model
     print("Testing the model...")
