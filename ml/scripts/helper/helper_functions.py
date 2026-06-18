@@ -6,7 +6,10 @@ from scripts.helper.helper_classes import (
     LoadedTensors,
     TensorDatasetSplit,
     ClassificationEvaluationData,
-    Label
+    Label,
+    LSTMConfig,
+    OrderBookLSTM,
+    OrderBookWindowDataset
 )
 
 from scripts.helper.constants import (
@@ -23,6 +26,8 @@ from scripts.helper.constants import (
     TEST_TENSOR_PATH,
     BEST_ANN_MODEL_PATH,
     ANN_MODEL_CHECKPOINT_PATH,
+    BEST_LSTM_MODEL_PATH,
+    LSTM_MODEL_CHECKPOINT_PATH,
     device
 )
 
@@ -37,6 +42,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim import Adam
 
+# ------------------------------------------
+# Preprocessing helpers
+# ------------------------------------------
 def get_data_from_confusion_matrices(matrices: list[ConfusionMatrix]) -> PerformanceMetrics:
     accuracy_sum = 0
     recall_sum = 0
@@ -219,11 +227,25 @@ def load_tensors() -> LoadedTensors:
         )
     )
 
+# ------------------------------------------
+# Training helpers
+# ------------------------------------------
 def load_ann_model(resume: bool):
     model = build_ann_model()
     if (resume):
         model_checkpoint_dict = torch.load(
             ANN_MODEL_CHECKPOINT_PATH,
+            map_location=device
+        )
+        model_state_dict = model_checkpoint_dict["model_state_dict"]
+        model.load_state_dict(model_state_dict)
+    return model
+
+def load_lstm_model(should_resume: bool):
+    model = build_lstm_model()
+    if should_resume:
+        model_checkpoint_dict = torch.load(
+            LSTM_MODEL_CHECKPOINT_PATH,
             map_location=device
         )
         model_state_dict = model_checkpoint_dict["model_state_dict"]
@@ -244,12 +266,15 @@ def build_ann_model():
         nn.Linear(8, 3)
     )
 
-def build_rnn_model():
-    return
+def build_lstm_model():
+    config = LSTMConfig()
+    model = OrderBookLSTM(config)
+    return model
 
-def evaluate_model(model: nn.Module, eval_split: TensorDatasetSplit):
+def evaluate_ann_model(model: nn.Module, eval_split: TensorDatasetSplit):
     # Print device type
     print(f"Evaluation is using device: {device}")
+
     # Extract the validation input and labels
     X_val = eval_split.X
     y_val = eval_split.y
@@ -268,7 +293,7 @@ def evaluate_model(model: nn.Module, eval_split: TensorDatasetSplit):
     predictions = []
     actual_labels = [Label(value) for value in y_val.tolist()]
 
-    # Compute the model output logitsevalu
+    # Compute the model output logits
     with torch.no_grad():
         for X, _ in val_loader:
             # Move X to the device
@@ -314,6 +339,78 @@ def evaluate_model(model: nn.Module, eval_split: TensorDatasetSplit):
     )
     up_confusion_matrix = ConfusionMatrix.from_predictions(
         up_eval_data
+    )
+
+    down_f1 = down_confusion_matrix.get_f1()
+    stationary_f1 = stationary_confusion_matrix.get_f1()
+    up_f1 = up_confusion_matrix.get_f1()
+    
+    macro_f1 = (down_f1 + stationary_f1 + up_f1) / 3
+
+    return macro_f1
+
+def evaluate_lstm_model(model: nn.Module, val_split: TensorDatasetSplit):
+    # Extract the val tensors
+    X_val = val_split.X
+    y_val = val_split.y
+
+    # Batch the validation input into DataLoader to avoid device
+    # out of memory error when moving validation data to device
+    val_dataset = OrderBookWindowDataset(
+        X_val, 
+        y_val, 
+        LSTMConfig.sequence_length
+    )
+    val_loader = DataLoader(val_dataset)
+
+    # Forward pass
+    model.eval()
+    predictions = []
+    actual_labels = []
+    for X, y in val_loader:
+        X = X.to(device)
+        y = y.to(device)
+
+        with torch.no_grad():
+            logits = model(X)
+
+            # Compute predictions
+            predictions_batch = torch.argmax(logits, dim=1)
+            predictions_batch = [
+                Label(value) for value in predictions_batch.tolist()
+            ]
+            actual_labels_batch = [
+                Label(target) for target in y.tolist()
+            ]
+            predictions.extend(predictions_batch)
+            actual_labels.extend(actual_labels_batch)
+
+    # Convert results classification evaluation data
+    up_eval_data = ClassificationEvaluationData(
+        predictions=predictions,
+        actual_labels=actual_labels,
+        positive_class=Label.UP
+    )
+    stationary_eval_data = ClassificationEvaluationData(
+        predictions=predictions,
+        actual_labels=actual_labels,
+        positive_class=Label.STATIONARY
+    )
+    down_eval_data = ClassificationEvaluationData(
+        predictions=predictions,
+        actual_labels=actual_labels,
+        positive_class=Label.DOWN
+    )
+
+    # Convert classification data into confusion matrix 
+    up_confusion_matrix = ConfusionMatrix.from_predictions(
+        up_eval_data
+    )
+    stationary_confusion_matrix = ConfusionMatrix.from_predictions(
+        stationary_eval_data
+    )
+    down_confusion_matrix = ConfusionMatrix.from_predictions(
+        down_eval_data
     )
 
     down_f1 = down_confusion_matrix.get_f1()
