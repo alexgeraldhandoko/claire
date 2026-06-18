@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from scripts.helper.math_utils import divide_or_zero
 
 import torch
+import torch.nn as nn
+from torch.utils.data import Dataset
 
 import numpy as np
 
@@ -132,3 +134,74 @@ class LoadedTensors:
     train_tensors: TensorDatasetSplit
     val_tensors: TensorDatasetSplit
     test_tensors: TensorDatasetSplit
+
+@dataclass(frozen=True)
+class LSTMConfig:
+    input_size: int = 44
+    hidden_size: int = 64
+    num_layers: int = 2
+    num_classes: int = 3
+    sequence_length: int = 32
+    dropout: float = 0.2
+    learning_rate: float = 1e-3
+    weight_decay: float = 1e-4
+    max_grad_norm: float = 1.0
+    is_bidirectional: bool = False
+
+class OrderBookLSTM(nn.Module):
+    def __init__(self, config: LSTMConfig):
+        super.__init__()
+
+        self.lstm = nn.LSTM(
+            input_size=config.input_size,
+            hidden_size=config.hidden_size,
+            num_layers=config.num_layers,
+            batch_first=True,
+            dropout=config.dropout if config.num_layers > 1 else 0.0,
+            bidirectional=config.is_bidirectional
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(config.dropout),
+            nn.Linear(config.hidden_size, config.num_classes)
+        )
+    
+    def forward(self, X: torch.Tensor):
+        _, (h_n, _) = self.lstm(X)
+        # h_n has shape (2, 64, 64)
+
+        logits = self.classifier(h_n[1, :, :])
+        # logits has shape (64, 3)
+        return logits
+    
+class OrderBookWindowDataset(Dataset):
+    def __init__(self, X: torch.Tensor, y: torch.Tensor, sequence_length: int):
+        self.X = X
+        self.y = y
+        self.sequence_length = sequence_length
+    def __len__(self):
+        return len(self.X) - self.sequence_length + 1
+
+    def __getitem__(self, idx: int):
+        start = min(idx, len(self.X) - 1)
+        end = min(idx + self.sequence_length, len(self.X) - 1)
+        X_window = self.X[start:end]
+        y_target = self.y[max(end - 1, 0)]
+        return X_window, y_target
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

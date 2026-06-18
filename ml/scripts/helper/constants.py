@@ -14,6 +14,8 @@ TEST_TENSOR_PATH = SAVE_FILE_DIR / "test.pt"
 MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
 ANN_MODEL_CHECKPOINT_PATH = MODELS_DIR / "ann-model" / "checkpoint.pth"
 BEST_ANN_MODEL_PATH = MODELS_DIR / "ann-model" / "best.pth"
+BEST_LSTM_MODEL_PATH = MODELS_DIR / "lstm-model" / "best.pth"
+LSTM_MODEL_CHECKPOINT_PATH = MODELS_DIR / "lstm-model" / "checkpoint.pth"
 
 # Numerical constants
 RANDOM_DATASET_SPLIT_SEED = 42

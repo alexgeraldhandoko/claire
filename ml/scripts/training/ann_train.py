@@ -12,7 +12,7 @@ from scripts.helper.constants import (
 from scripts.helper.helper_classes import TensorDatasetSplit, LoadedTensors
 from scripts.helper.helper_functions import (
     load_tensors, 
-    evaluate_model,
+    evaluate_ann_model,
     update_best_model,
     update_checkpoint_model,
     load_ann_model
@@ -111,7 +111,7 @@ def main():
             optimizer.step()
 
         # Validate the model
-        macro_f1 = evaluate_model(model, val_split)
+        macro_f1 = evaluate_ann_model(model, val_split)
         print(f"Validation macro F1: {macro_f1}")
 
         # If the model performs better during this validation,
@@ -140,7 +140,7 @@ def main():
     # Test the model
     print("-----------------------------------------")
     print("Testing model...")
-    macro_f1 = evaluate_model(model, test_split)
+    macro_f1 = evaluate_ann_model(model, test_split)
     print(f"Macro F1: {macro_f1}")
     print("-----------------------------------------")
 
