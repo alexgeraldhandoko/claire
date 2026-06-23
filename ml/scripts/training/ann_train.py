@@ -6,6 +6,7 @@ sys.path.insert(0, str(ML_DIR))
 
 from scripts.helper.constants import (
     ANN_MODEL_CHECKPOINT_PATH,
+    BEST_ANN_MODEL_PATH,
     device,
     train_parser
 )
@@ -76,7 +77,7 @@ def main():
         start_epoch = 0
         end_epoch = epochs
         macro_f1 = 0
-        best_macro_f1 = 0
+        best_macro_f1 = float("-inf")
 
     # Train the model
     print(
@@ -140,6 +141,12 @@ def main():
     # Test the model
     print("-----------------------------------------")
     print("Testing model...")
+    best_model_dict = torch.load(
+        BEST_ANN_MODEL_PATH,
+        map_location=device
+    )
+    best_model_state_dict = best_model_dict["model_state_dict"]
+    model.load_state_dict(best_model_state_dict)
     macro_f1 = evaluate_ann_model(model, test_split)
     print(f"Macro F1: {macro_f1}")
     print("-----------------------------------------")

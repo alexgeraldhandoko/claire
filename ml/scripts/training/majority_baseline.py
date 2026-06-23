@@ -1,16 +1,26 @@
 import torch
+
+import sys
 from pathlib import Path
+ML_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ML_DIR))
 
-from ml.scripts.helper.helper_classes import Label, ConfusionMatrix, ClassificationEvaluationData
-from ml.scripts.helper.helper_functions import get_data_from_confusion_matrices
+from scripts.helper.helper_classes import Label, ConfusionMatrix, ClassificationEvaluationData
+from scripts.helper.helper_functions import get_data_from_confusion_matrices
 
-from ml.scripts.helper.constants import TRAINING_DATA_PATH
+from scripts.helper.constants import (
+    TRAINING_DATA_PATH,
+    TEST_TENSOR_PATH
+)
 
 # Load the PyTorch training tensor
 print("Loading training data...")
 train_dict = torch.load(TRAINING_DATA_PATH)
-X_train = train_dict["X_train"]
-y_train = train_dict["y_train"]
+y_train = train_dict["y"]
+
+# Load the PyTorch test tensor
+test_dict = torch.load(TEST_TENSOR_PATH)
+y_test = test_dict["y"]
 
 # Figure out the majority class
 up_count = 0
@@ -20,13 +30,10 @@ actual_labels = []
 for label in y_train:
     if label == Label.DOWN: 
         down_count += 1
-        actual_labels.append(Label.DOWN)
     elif label == Label.STATIONARY:
         stationary_count += 1
-        actual_labels.append(Label.STATIONARY)
     else:
         up_count += 1
-        actual_labels.append(Label.UP)
 
 if (up_count > stationary_count and up_count > down_count):
     majority_label = Label.UP
@@ -42,7 +49,15 @@ print(f"Up count: {up_count}")
 
 # Create list of predictions
 print("Computing predictions...")
-predictions = [majority_label] * len(y_train)
+predictions = [majority_label] * len(y_test)
+actual_labels = []
+for label in y_test:
+    if label == Label.DOWN:
+        actual_labels.append(Label.DOWN)
+    elif label == Label.STATIONARY:
+        actual_labels.append(Label.STATIONARY)
+    else:
+        actual_labels.append(Label.UP)
 
 # Compute respective confusion matrix
 down_eval_data = ClassificationEvaluationData(
