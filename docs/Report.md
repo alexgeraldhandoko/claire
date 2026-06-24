@@ -4,6 +4,17 @@ title: Claire Project Report
 description: Limit Order Book prediction project
 permalink: /
 ---
+<script>
+   window.MathJax = {
+      tex: {
+         inlineMath: [["$", "$"], ["\\(", "\\)"]],
+         displayMath: [["$$", "$$"], ["\\[", "\\]"]],
+         processEscapes: true
+      }
+   };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
 # Claire Project Report
 
 ## 0. Project Direction
@@ -233,7 +244,7 @@ should/could be used by the model:
       $$
 
       This gives the model a measure of the relative thickness of the bid versus ask sides.
-      
+
       This feature is chosen because it gives a nice value for the model, as it is:
       - Centered around zero
       - Bounded between -1 and 1
