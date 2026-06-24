@@ -7,6 +7,39 @@ permalink: /
 # Claire Project Report
 
 ## 0. Project Direction
+The goal of the project is to build a fair-price movement prediction model 
+whose prediction results can contribute to make profitable trading decisions.
+
+In order to do so, the project will build and train models with various
+architectures and loss functions, as well as process inputs with various 
+feature engineering techniques. To analyse the success of the model, their
+test performance will be compared with new unseen data each time, and compared
+with simple baseline models.
+
+The general project direction is therefore as follows:
+1. Dataset Collection: Choose a comprehensive and credible data source
+
+2. Dataset Processing: Choose feature engineering techniques useful for the model
+to learn fair-value price prediction
+
+3. Model Building: Build model with various architectures, where simpler
+architectures serve as baselines for more complex models to evaluate the strength
+of the more complex models:
+- We will start with a model that always predicts the majority class
+- We will then build a simple ANN model
+- LSTM model
+- Transformer model
+
+4. Model Training, Testing, and Improvement: Train and test the model to look for 
+room for improvement. Then loop from steps 2 to steps 4 until a satisfactory
+performance is attained.
+
+5. Trading Algorithm: Define a simple trading algorithm that takes the model's fair-
+price prediction into account when executing trade decisions. 
+
+6. Live Paper Trading: The same trading algorithm will use different models, where
+each of these models will have their own resulting PnL displayed. This aims to demonstrate 
+the usefulness of the prediction model, measured by PnL.
 
 ## 1. Dataset Collection
 
