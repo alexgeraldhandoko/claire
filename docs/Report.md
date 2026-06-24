@@ -17,12 +17,12 @@ test performance will be compared with new unseen data each time, and compared
 with simple baseline models.
 
 The general project direction is therefore as follows:
-1. Dataset Collection: Choose a comprehensive and credible data source
+1. **Dataset Collection**: Choose a comprehensive and credible data source
 
-2. Dataset Processing: Choose feature engineering techniques useful for the model
+2. **Dataset Processing**: Choose feature engineering techniques useful for the model
 to learn fair-value price prediction
 
-3. Model Building: Build model with various architectures, where simpler
+3. **Model Building**: Build model with various architectures, where simpler
 architectures serve as baselines for more complex models to evaluate the strength
 of the more complex models:
 - We will start with a model that always predicts the majority class
@@ -30,14 +30,14 @@ of the more complex models:
 - LSTM model
 - Transformer model
 
-4. Model Training, Testing, and Improvement: Train and test the model to look for 
+4. **Model Training, Testing, and Improvement**: Train and test the model to look for 
 room for improvement. Then loop from steps 2 to steps 4 until a satisfactory
 performance is attained.
 
-5. Trading Algorithm: Define a simple trading algorithm that takes the model's fair-
+5. **Trading Algorithm**: Define a simple trading algorithm that takes the model's fair-
 price prediction into account when executing trade decisions. 
 
-6. Live Paper Trading: The same trading algorithm will use different models, where
+6. **Live Paper Trading**: The same trading algorithm will use different models, where
 each of these models will have their own resulting PnL displayed. This aims to demonstrate 
 the usefulness of the prediction model, measured by PnL.
 
@@ -91,6 +91,7 @@ as the source of data for this project.
 ## 2. Dataset Processing
 
 **Dataset Parsing**
+
 The LOB dataset came in a huge JSON file, where each line represents the LOB
 or a change to the LOB at every 0.1s interval of the day.
 
@@ -102,6 +103,7 @@ thus optimised over several iterations. The optimisations included:
 - Reduced print statements
 
 **Label Engineering**
+
 We have decided to use three classification labels for the input:
 DOWN/STATIONARY/UP
 
@@ -114,38 +116,44 @@ it can be used as a factor in making profitable trading decisions.
 
 There were several methods available to label the classification ground truth 
 for the input data:
-1. Absolute change compared to next timestep's mid price
-e.g. Mid price change of > 0.001 as up, < -0.001 as down, and stationary
-otherwise.
-This may work poorly for different datasets. For instance, 0.001 is a very small
-change for assets with high prices like bitcoin
-2. Percentage change compared to next timestep's mid price
-e.g. Mid price change of > 0.2% as up, < -0.2% as down, and stationary
-otherwise.
-This may result in noisy labelling. Financial data is highly stochastic, and 
-random price fluctuations can happen from one timestep to the next. Thus,
-a +0.2% change could be caused by noise instead of real market factors.
-3. Percentage change compared to the smoothed future average mid price
-e.g. Compare the current mid price with the average price of the next 50 
-timesteps. If the percentage change is > 0.2%, then label as up. If the 
-percentage change is < -0.2%, label as down. Otherwise, label as stationary.
-This labelling method could be fine for academic research. But there has been
-criticisms regarding this method when used to build models for the profitable 
-trading. One of them is that this method ignores transaction costs. For
-instance, if the spread relative to mid price is 0.5%, then the costs could
-outweigh the earnings from a 0.2% movement in mid price.
-4. Difference in the percentage change of current mid price and the average spread
-as a percentage of the mid price across the dataset
-e.g. Average spread as percentage of mid price is calculated to be 0.5% 
-for the entire dataset. If the mid price percentage change from one timestep to the
-next timestep is > 0.5%, label as up. If < -0.5%, label as down. Otherwise,
-label as stationary.
-This takes into account possible transaction costs of the trade.
+1. **Absolute change compared to next timestep's mid price**
+
+   e.g. Mid price change of > 0.001 as up, < -0.001 as down, and stationary
+   otherwise.
+   This may work poorly for different datasets. For instance, 0.001 is a very small
+   change for assets with high prices like bitcoin
+2. **Percentage change compared to next timestep's mid price**
+
+   e.g. Mid price change of > 0.2% as up, < -0.2% as down, and stationary
+   otherwise.
+   This may result in noisy labelling. Financial data is highly stochastic, and 
+   random price fluctuations can happen from one timestep to the next. Thus,
+   a +0.2% change could be caused by noise instead of real market factors.
+3. **Percentage change compared to the smoothed future average mid price**
+
+   e.g. Compare the current mid price with the average price of the next 50 
+   timesteps. If the percentage change is > 0.2%, then label as up. If the 
+   percentage change is < -0.2%, label as down. Otherwise, label as stationary.
+   This labelling method could be fine for academic research. But there has been
+   criticisms regarding this method when used to build models for the profitable 
+   trading. One of them is that this method ignores transaction costs. For
+   instance, if the spread relative to mid price is 0.5%, then the costs could
+   outweigh the earnings from a 0.2% movement in mid price.
+
+4. **Difference in the percentage change of current mid price and the average spread
+as a percentage of the mid price across the dataset**
+
+   e.g. Average spread as percentage of mid price is calculated to be 0.5% 
+   for the entire dataset. If the mid price percentage change from one timestep to the
+   next timestep is > 0.5%, label as up. If < -0.5%, label as down. Otherwise,
+   label as stationary.
+   This takes into account possible transaction costs of the trade.
 
 The 4th option will be used for this project due to its comprehensiveness as
 compared to earlier options.
 
 **Feature Scaling**
+
 Feature scaling remains important although many of the features are price levels 
 hovering around the same magnitude. This is because the features contain a mix
 of both prices and also share amounts that can differ in magnitudes.
@@ -154,77 +162,97 @@ This project will use feature scaling as provided by Sklearn's StandardScaler,
 which does standardisation (z-score scaling) of the features.
 
 **Feature Engineering**
+
 The order book provides the bulk of the features. However, there are still
 several handcrafted feature transformations and additional features that 
 should/could be used by the model:
 
-1. Replace absolute prices with relative price distances
-The target used during learning depends on whether the future mid price
-moved enough relative to the current mid price such that it can overcome
-transaction costs caused by the spread. This requires the model to analyse
-and interpret factors from the data such as:
-- How close is bid/ask side liquidity from the mid price?
-- How thin/thick is the bid/ask side?
-Thus, using ask/bid levels relative to the current mid price instead of
-absolute ask/bid levels may be useful to represent the structure of the 
-order book to the model.
+   1. **Replace absolute prices with relative price distances**
 
-Moreover, one LOB paper by Avraam Tsantekidis proposed that stationary features 
-could be useful for LOB prediction since financial data is non-stationary. 
-This means that although BTCUSDT prices may fluctuate vastly across time, the 
-relative bids and asks around the mid price as percentages remain more stable. 
-This means the model can be applied to more contexts across time regardless of the 
-price of BTC.
+      The target used during learning depends on whether the future mid price
+      moved enough relative to the current mid price such that it can overcome
+      transaction costs caused by the spread. This requires the model to analyse
+      and interpret factors from the data such as:
+      - How close is bid/ask side liquidity from the mid price?
+      - How thin/thick is the bid/ask side?
+      Thus, using ask/bid levels relative to the current mid price instead of
+      absolute ask/bid levels may be useful to represent the structure of the 
+      order book to the model.
 
-However, it is not sufficiently rigorous to claim that the model could predict
-better when passed in the relative price distances as opposed to the actual
-absolute prices. In fact, this point applies to all features that are proposed to 
-be added. This is because the model may learn better transformations
-with less engineered features that help it to make better predictions. Thus,
-this project will test the model validation performance on a variety of feature
-formats.
+      Moreover, one LOB paper by Avraam Tsantekidis proposed that stationary features 
+      could be useful for LOB prediction since financial data is non-stationary. 
+      This means that although BTCUSDT prices may fluctuate vastly across time, the 
+      relative bids and asks around the mid price as percentages remain more stable. 
+      This means the model can be applied to more contexts across time regardless of the 
+      price of BTC.
 
-2. Add spread as percentage of current mid price.
-The classification labels predict UP/DOWN/STATIONARY based on whether the mid price
-moved enough to overcome the transaction costs represented by the spread. Thus, it
-is useful for the model to know the current spread in order to predict whether
-the mid price in the next time step will move enough to overcome the spread.
+      However, it is not sufficiently rigorous to claim that the model could predict
+      better when passed in the relative price distances as opposed to the actual
+      absolute prices. In fact, this point applies to all features that are proposed to 
+      be added. This is because the model may learn better transformations
+      with less engineered features that help it to make better predictions. Thus,
+      this project will test the model validation performance on a variety of feature
+      formats.
 
-3. Add depth imbalance of bid and ask side
-Comparing the bid vs ask side provides a probabilistic clue to the future movement
-direction of the asset's fair value. This is because a larger bid size means there
-is more liquidity to absorb downward pressure from the ask side in cases of incoming
-aggressive sell orders and vice versa.
+   2. **Add spread as percentage of current mid price.**
 
-To measure the relative sizes of the bid and ask sides, we will use depth imbalance.
-It is calculated as follows:
+      The classification labels predict UP/DOWN/STATIONARY based on whether the mid price
+      moved enough to overcome the transaction costs represented by the spread. Thus, it
+      is useful for the model to know the current spread in order to predict whether
+      the mid price in the next time step will move enough to overcome the spread.
 
-Total bid depth = sum of all bid sizes
-Total ask depth = sum of all ask sizes
-Depth imbalance = (
-   (total bid depth - total ask depth) /
-   (total bid depth + total ask depth)
-)
+   3. **Add depth imbalance of bid and ask side**
 
-This gives the model a measure of the relative thickness of the bid versus ask sides.
-This feature is chosen because it gives a nice value for the model, as it is:
-- Centered around zero
-- Bounded between -1 and 1
-- Symmetric. This means that if ask depth is x times larger than bid depth, the
-magnitude of depth imbalance is the same as if the bid depth is x times larger 
-than ask depth.
+      Comparing the bid vs ask side provides a probabilistic clue to the future movement
+      direction of the asset's fair value. This is because a larger bid size means there
+      is more liquidity to absorb downward pressure from the ask side in cases of incoming
+      aggressive sell orders and vice versa.
 
-We would also add depth imbalance for different depths of the order book so that
-the model can see summaries of the bid vs ask pressure. This could provide important
-information for the model's prediction task as the imabalances across different levels 
-of the book may display different signals, e.g.:
-Let depth_imbalance_x be the depth imbalance at levels 1 to ```x``` of the order book.
-- If depth_imbalance_1 is high, then the market looks very bullish around the current
-price
-- However, if depth_imbalance_10 is very low, then the wider book may actually resist 
-the upward pressure from the ask side.
+      To measure the relative sizes of the bid and ask sides, we will use depth imbalance.
+      It is calculated as follows:
+
+      Let the bid depth and ask depth be defined as follows:
+
+      $$
+      B = \sum_{i=1}^{10} b_i
+      $$
+
+      $$
+      A = \sum_{i=1}^{10} a_i
+      $$
+
+      where $b_i$ is the bid size at level $i$ and 
+      $a_i$ is the ask size at level $i$.
+
+      Then the depth imbalance is given as:
+
+      $$
+      \text{Depth Imbalance}
+      =
+      \frac{B-A}{B+A}
+      $$
+
+      This gives the model a measure of the relative thickness of the bid versus ask sides.
+      
+      This feature is chosen because it gives a nice value for the model, as it is:
+      - Centered around zero
+      - Bounded between -1 and 1
+      - Symmetric. This means that if ask depth is x times larger than bid depth, the
+      magnitude of depth imbalance is the same as if the bid depth is x times larger 
+      than ask depth.
+
+      We would also add depth imbalance for different depths of the order book so that
+      the model can see summaries of the bid vs ask pressure. This could provide important
+      information for the model's prediction task as the imabalances across different levels 
+      of the book may display different signals, e.g.:
+      Let depth_imbalance_x be the depth imbalance at levels 1 to ```x``` of the order book.
+      - If depth_imbalance_1 is high, then the market looks very bullish around the current
+      price
+      - However, if depth_imbalance_10 is very low, then the wider book may actually resist 
+      the upward pressure from the ask side.
 
 **Processed Dataset Storage**
+
 Since the project will involve testing different architectures on training data,
 the preprocessing step needs to be repeatable and consistent. This means that we 
 will store the preprocessing pipelines in a separate file to maintain modularity
