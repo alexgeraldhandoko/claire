@@ -19,5 +19,5 @@ research.
 More details can be read in Section 0 of [`Report.md`](./Report.md)
 
 ## Project Documentation
-The progress of the project will be documented in the [`Report.md`](./Report.md) file in this
+The progress of the project will be documented in the [`docs/report.md`](./docs/report.md) file in this
 same repository.
