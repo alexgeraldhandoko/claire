@@ -1,0 +1,5 @@
+title: Claire Project Report
+description: Limit Order Book prediction project
+theme: jekyll-theme-cayman
+# Markdown processor to convert the markdown into HTML for browsers
+markdown: kramdown

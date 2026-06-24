@@ -1,3 +1,9 @@
+---
+layout: default
+title: Claire Project Report
+description: Limit Order Book prediction project
+permalink: /
+---
 # Claire Project Report
 
 ## 0. Project Direction
