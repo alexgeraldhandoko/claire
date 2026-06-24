@@ -282,3 +282,38 @@ The processed dataset itself will also be stored in separate files as PyTorch
 tensors and can be loaded using torch.load()
 
 ## 3. Model building
+**Phase 1: Build working Majority Prediction, ANN, and LSTM models**
+
+The majority prediction model simply calculates what the majority label is, which is STATIONARY. Thus, it always predicts STATIONARY for every timestep.
+
+**The ANN**
+   
+   A simple FCNN with 3 layers.
+   - Layer 1: 32 neurons
+   - Layer 2: 16 neurons
+   - Layer 3: 8 neurons
+   - Final Output Layer: 3 neurons
+
+   It uses a sigmoid activation function during training.
+   Meanwhile, prediction utilises argmax to choose the class with the highest logit value.
+
+**The LSTM model**
+- Stacked LSTM with 2 layers
+- Hidden and cell state of size 64
+- Sequence length is 32 timesteps during training, i.e. it looks at the
+previous 32 timesteps to make prediction of the
+mid-price movement at the next timestep
+- Dropout rate during training is 0.2 between the LSTM and the FCNN
+prediction layer
+- Learning rate: 1 x 10^-3
+- Weight decay: 1 x 10^-4
+- Maximum gradient norm: 1.0
+- Unidirectional due to only being able to work with past data in financial context
+
+The Macro F1 of the respective models based on their architecture are:
+- Majority Predictor Baseline: 0.331
+- ANN: 0.430
+- LSTM: 0.415
+- Transformer: 
+
+**Phase 2: Revise and improve the performance of the models**
