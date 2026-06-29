@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Welcome to **Claire**, a financial model built for research/testing that is aimed 
+**Claire** is a financial model built for research/testing that is aimed 
 at making accurate LOB predictions for the purpose of performing profitable
 trading decisions. It is partly inspired by modern electronic market-makers
 and will eventually be used to make live paper trading decisions that impact
